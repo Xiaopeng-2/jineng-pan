@@ -104,7 +104,7 @@ button[data-testid="baseButton-secondary"][key="cancel_delete"] {
 """
 st.markdown(PAGE_CSS, unsafe_allow_html=True)
 
-SAVE_FILE = r"C:\Users\12935332\Desktop\jixiao.xlsx"
+SAVE_FILE = "jixiao.xlsx"   # 固定保存的文件
 # 安全校验：确保文件后缀是xlsx，避免格式识别错误
 if not SAVE_FILE.endswith(".xlsx"):
     SAVE_FILE += ".xlsx"
@@ -680,4 +680,5 @@ elif view == "能力分析":
 
         st.plotly_chart(fig1, use_container_width=True)
         st.plotly_chart(fig2, use_container_width=True)
+
         st.plotly_chart(fig3, use_container_width=True)
