@@ -21,17 +21,22 @@ st.set_page_config(page_title="技能覆盖分析大屏", layout="wide")
 # -------------------- 页面样式 --------------------
 PAGE_CSS = """
 <style>
+/* 全局主体背景 + 文字颜色 */
 body, [data-testid="stAppViewContainer"]{
-    background-color:#0d1b2a !important;
-    color:#ffffff !important;
+    background-color: #e6f7ff !important;
+    color: #003366 !important;
 }
+
+/* 侧边栏背景 + 文字 */
 [data-testid="stSidebar"]{
-    background-color:#1b263b !important;
-    color:#ffffff !important;
+    background-color: #d1e7f5 !important;
+    color: #003366 !important;
 }
+
+/* 按钮样式 */
 div.stButton>button{
-    background-color:#4cc9f0 !important;
-    color:#000000 !important;
+    background-color: #4cc9f0 !important;
+    color: #000000 !important;
     border-radius:10px;
     height:40px;
     font-weight:700;
@@ -42,63 +47,52 @@ div.stButton>button:hover{
     background-color:#4895ef !important;
     color:#ffffff !important;
 }
+
+/* 自定义指标卡片 */
 .metric-card{
-    background-color:#1b263b !important;
+    background-color: #ffffff !important;
     padding:20px;
     border-radius:16px;
     text-align:center;
-    box-shadow:0 0 15px rgba(0,0,0,0.4);
+    box-shadow:0 0 15px rgba(0,0,0,0.08);
 }
 .metric-value{
     font-size:36px;
     font-weight:800;
-    color:#4cc9f0 !important;
+    color: #0066cc !important;
 }
 .metric-label{
     font-size:14px;
-    color:#cccccc !important;
+    color: #336699 !important;
 }
+
+/* 分割线 */
 hr{
     border:none;
-    border-top:1px solid rgba(255,255,255,.12);
+    border-top:1px solid #bbd9f7;
     margin:16px 0;
 }
-/* 热力图滚动容器样式 */
+
+/* 热力图滚动容器 */
 .heatmap-container {
     max-height: 700px;
     overflow-y: auto;
     overflow-x: auto;
     border-radius: 8px;
+    background-color: #ffffff;
 }
+
 /* 滚动条美化 */
 .heatmap-container::-webkit-scrollbar {
     width: 8px;
     height: 8px;
 }
 .heatmap-container::-webkit-scrollbar-thumb {
-    background-color: #4cc9f0;
+    background-color: #99c2ff;
     border-radius: 4px;
 }
 .heatmap-container::-webkit-scrollbar-track {
-    background-color: #1b263b;
-}
-/* 删除按钮样式 */
-button[data-testid="baseButton-secondary"][key="delete_btn"] {
-    background-color: #ff4d4d !important;
-    color: white !important;
-}
-button[data-testid="baseButton-secondary"][key="delete_btn"]:hover {
-    background-color: #ff1a1a !important;
-}
-/* 确认按钮样式 */
-button[data-testid="baseButton-secondary"][key="confirm_delete"] {
-    background-color: #ff6666 !important;
-    color: white !important;
-}
-/* 取消按钮样式 */
-button[data-testid="baseButton-secondary"][key="cancel_delete"] {
-    background-color: #4cc9f0 !important;
-    color: black !important;
+    background-color: #e6f7ff;
 }
 </style>
 """
