@@ -142,6 +142,8 @@ def load_data_from_gui():
                     st.sidebar.warning(f"⚠️ 表 {sheet_name} 缺少必要列，已跳过。")
                     continue
 
+                # 永久排除分数总和
+                df = df[df["明细"] != "分数总和"]
                 sheet_frames[sheet_name] = df
                 st.sidebar.success(f"✅ 已加载工作表: {sheet_name} ({len(df)}行数据)")
                 
@@ -256,6 +258,7 @@ if uploaded_file is not None:
                     st.sidebar.warning(f"⚠️ 表 {sheet_name} 缺少必要列，已跳过。")
                     continue
 
+                df = df[df["明细"] != "分数总和"]
                 sheet_frames[sheet_name] = df
                 
             except Exception as e:
@@ -306,6 +309,7 @@ if st.sidebar.button("📝 创建新的时间点"):
                 base_df = pd.DataFrame(columns=["明细", "员工", "值", "分组"])
                 st.sidebar.info("📋 未找到上期数据，创建空白模板")
             
+            base_df = base_df[base_df["明细"] != "分数总和"]
             st.session_state.sheet_frames[new_sheet_name] = base_df
             st.session_state.sheets.append(new_sheet_name)
             st.session_state.sheets.sort()
@@ -399,13 +403,13 @@ def get_merged_df(keys: List[str], groups: List[str]) -> pd.DataFrame:
         return pd.DataFrame()
     
     merged_df = pd.concat(dfs, axis=0, ignore_index=True)
+    merged_df = merged_df[merged_df["明细"] != "分数总和"]
     return merged_df
 
 df = get_merged_df(time_choice, selected_groups)
 
 # -------------------- 图表函数 --------------------
 def chart_total(df0):
-    df0 = df0[df0["明细"] != "分数总和"]
     emp_stats = df0.groupby("员工")["值"].sum().sort_values(ascending=False).reset_index()
     fig = go.Figure(go.Bar(
         x=emp_stats["员工"],
@@ -427,12 +431,7 @@ def chart_total(df0):
     return fig
 
 def chart_stack(df0):
-    df0 = df0[df0["明细"] != "分数总和"]
     df_pivot = df0.pivot_table(index="明细", columns="员工", values="值", aggfunc="sum", fill_value=0)
-    
-   # if len(df_pivot) > 50:
-   #     df_pivot = df_pivot.head(50)
-   #     st.info(f"⚠️ 任务数量较多，已限制显示前50个任务")
     
     fig = go.Figure()
     colors = ['#3498db', '#2ecc71', '#e74c3c', '#f39c12', '#9b59b6', '#1abc9c', '#34495e']
@@ -458,17 +457,8 @@ def chart_stack(df0):
     return fig
 
 def chart_heat(df0):
-    df0 = df0[df0["明细"] != "分数总和"]
     tasks = df0["明细"].unique().tolist()
     emps = df0["员工"].unique().tolist()
-    
-   # if len(tasks) > 30:
-   #     tasks = tasks[:30]
-   #     st.info(f"⚠️ 任务数量较多，已限制显示前30个任务")
-    
-   # if len(emps) > 20:
-   #     emps = emps[:20]
-   #     st.info(f"⚠️ 员工数量较多，已限制显示前20名员工")
     
     data = []
     for i, t in enumerate(tasks):
@@ -509,7 +499,6 @@ def chart_heat(df0):
 
 # -------------------- 指标卡片 --------------------
 def show_cards(df0):
-    df0 = df0[df0["明细"] != "分数总和"]
     if df0.empty:
         return
 
@@ -586,6 +575,9 @@ if view == "编辑数据":
             with col1:
                 if st.button("💾 保存修改", use_container_width=True):
                     try:
+                        # 保存时自动过滤分数总和
+                        edited_df = edited_df[edited_df["明细"] != "分数总和"]
+                        
                         if selected_groups and "分组" in original_df.columns:
                             mask = original_df["分组"].isin(selected_groups)
                             original_df = original_df[~mask].reset_index(drop=True)
@@ -665,10 +657,6 @@ elif view == "能力分析":
         employees = df["员工"].unique().tolist()
         selected_emps = st.sidebar.multiselect("选择员工（图1显示）", employees, default=employees[:min(5, len(employees))])
         tasks = df["明细"].unique().tolist()
-        
-        #if len(tasks) > 20:
-        #   tasks = tasks[:20]
-        #    st.info(f"⚠️ 任务数量较多，已限制显示前20个任务")
 
         fig1, fig2, fig3 = go.Figure(), go.Figure(), go.Figure()
         sheet_color_map = {sheet: BRIGHT_COLORS[idx % len(BRIGHT_COLORS)] for idx, sheet in enumerate(time_choice)}
@@ -676,31 +664,29 @@ elif view == "能力分析":
         emp_color_idx = 0
         for sheet in time_choice:
             df_sheet = get_merged_df([sheet], selected_groups)
-            df_sheet = df_sheet[df_sheet["明细"] != "分数总和"]
-            if not df_sheet.empty:
-                df_pivot = df_sheet.pivot(index="明细", columns="员工", values="值").fillna(0)
+            df_pivot = df_sheet.pivot(index="明细", columns="员工", values="值").fillna(0)
 
-                for emp in selected_emps:
-                    if emp in df_pivot.columns:
-                        fig1.add_trace(go.Scatter(
-                            x=tasks, y=df_pivot[emp].reindex(tasks, fill_value=0),
-                            mode="lines+markers", name=f"{sheet}-{emp}",
-                            line=dict(color=BRIGHT_COLORS[emp_color_idx % len(BRIGHT_COLORS)], width=2.5),
-                            marker=dict(size=7)
-                        ))
-                        emp_color_idx += 1
+            for emp in selected_emps:
+                if emp in df_pivot.columns:
+                    fig1.add_trace(go.Scatter(
+                        x=tasks, y=df_pivot[emp].reindex(tasks, fill_value=0),
+                        mode="lines+markers", name=f"{sheet}-{emp}",
+                        line=dict(color=BRIGHT_COLORS[emp_color_idx % len(BRIGHT_COLORS)], width=2.5),
+                        marker=dict(size=7)
+                    ))
+                    emp_color_idx += 1
 
-                fig2.add_trace(go.Scatter(
-                    x=tasks, y=df_pivot.sum(axis=1).reindex(tasks, fill_value=0),
-                    mode="lines+markers", name=sheet,
-                    line=dict(color=sheet_color_map[sheet], width=2.5),
-                    marker=dict(size=7)
-                ))
+            fig2.add_trace(go.Scatter(
+                x=tasks, y=df_pivot.sum(axis=1).reindex(tasks, fill_value=0),
+                mode="lines+markers", name=sheet,
+                line=dict(color=sheet_color_map[sheet], width=2.5),
+                marker=dict(size=7)
+            ))
 
-                fig3.add_trace(go.Bar(
-                    x=df_pivot.columns, y=df_pivot.sum(axis=0),
-                    name=sheet, marker=dict(color=sheet_color_map[sheet]), width=0.25
-                ))
+            fig3.add_trace(go.Bar(
+                x=df_pivot.columns, y=df_pivot.sum(axis=0),
+                name=sheet, marker=dict(color=sheet_color_map[sheet]), width=0.25
+            ))
 
         for fig in [fig1, fig2, fig3]:
             fig.update_layout(
