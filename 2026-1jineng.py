@@ -1,15 +1,15 @@
 import os
 import time
 from datetime import datetime
-from typing import List, Tuple
+from typing import List
 import io
 import base64
 
 # 先设置pandas配置，避免版本兼容问题
 import pandas as pd
 
-pd.set_option('io.excel.xlsx.reader', 'openpyxl')  # 强制指定xlsx读取引擎
-pd.set_option('io.excel.xls.reader', 'xlrd')  # 兼容xls格式
+pd.set_option('io.excel.xlsx.reader', 'openpyxl')
+pd.set_option('io.excel.xls.reader', 'xlrd')
 import streamlit as st
 from streamlit_autorefresh import st_autorefresh
 from streamlit_echarts import st_echarts
@@ -106,13 +106,11 @@ st.markdown(PAGE_CSS, unsafe_allow_html=True)
 def load_data_from_gui():
     """从GUIbit目录读取jixiao.xlsx文件"""
     try:
-        # 定义GUIbit目录路径 - 根据你的项目结构调整
-        # 尝试多种可能的路径
         possible_paths = [
-            "./guibit/jixiao.xlsx",  # 当前目录下的guibit文件夹
-            "./jixiao.xlsx",  # 当前目录下
-            "../guibit/jixiao.xlsx",  # 上级目录下的guibit文件夹
-            "jixiao.xlsx",  # 当前目录下
+            "./guibit/jixiao.xlsx",
+            "./jixiao.xlsx",
+            "../guibit/jixiao.xlsx",
+            "jixiao.xlsx",
         ]
         
         file_path = None
@@ -130,7 +128,6 @@ def load_data_from_gui():
         
         st.sidebar.info(f"🔄 正在从 {file_path} 读取数据...")
         
-        # 读取Excel文件
         xpd = pd.ExcelFile(file_path, engine='openpyxl')
         sheet_frames = {}
         
@@ -140,23 +137,12 @@ def load_data_from_gui():
                 if df.empty:
                     continue
                     
-                # 检查必要列
                 required_cols = {"明细", "员工", "值"}
                 if not required_cols.issubset(set(df.columns)):
                     st.sidebar.warning(f"⚠️ 表 {sheet_name} 缺少必要列，已跳过。")
                     continue
 
-                # 处理数据
-                if "数量总和" not in df.columns:
-                    # 如果没有数量总和列，计算并添加
-                    sum_df = (
-                        df.groupby("明细", as_index=False)["值"].sum()
-                        .rename(columns={"值": "数量总和"})
-                    )
-                    df = df.merge(sum_df, on="明细", how="left")
-                
                 sheet_frames[sheet_name] = df
-                
                 st.sidebar.success(f"✅ 已加载工作表: {sheet_name} ({len(df)}行数据)")
                 
             except Exception as e:
@@ -184,50 +170,26 @@ if 'data_loaded' not in st.session_state:
     st.session_state.data_loaded = False
 
 # -------------------- 自动加载数据 --------------------
-# 页面加载时自动从GUIbit读取数据
 if not st.session_state.data_loaded:
     with st.spinner("正在从GUIbit加载数据..."):
         sheets, sheet_frames, source_name = load_data_from_gui()
         
         if sheets:
-            # 保存到session state
             st.session_state.sheets = sheets
             st.session_state.sheet_frames = sheet_frames
             st.session_state.file_name = source_name
             st.session_state.data_loaded = True
-            
-            # 修复数量总和
-            def repair_quantity_sums(dataframes):
-                """修复所有数据框的数量总和列"""
-                repaired_frames = {}
-                for sheet_name, df in dataframes.items():
-                    if "明细" in df.columns and "值" in df.columns:
-                        sum_df = (
-                            df.groupby("明细", as_index=False)["值"].sum()
-                            .rename(columns={"值": "数量总和"})
-                        )
-                        df = df.drop(columns=["数量总和"], errors="ignore")
-                        df = df.merge(sum_df, on="明细", how="left")
-                        repaired_frames[sheet_name] = df
-                    else:
-                        repaired_frames[sheet_name] = df
-                return repaired_frames
-            
-            st.session_state.sheet_frames = repair_quantity_sums(st.session_state.sheet_frames)
             st.success(f"✅ 已自动从GUIbit加载数据 ({len(sheets)}个时间点)")
         else:
-            # 如果没有找到数据，使用示例数据
             st.session_state.sheet_frames = {
                 "示例_2025_01": pd.DataFrame({
                     "明细": ["任务A", "任务B", "任务C", "任务D"],
-                    "数量总和": [3, 2, 5, 4],
                     "员工": ["张三", "李四", "王五", "赵六"],
                     "值": [1, 1, 1, 1],
                     "分组": ["A8", "B7", "VN", "A8"]
                 }),
                 "示例_2025_02": pd.DataFrame({
                     "明细": ["任务A", "任务B", "任务C", "任务E"],
-                    "数量总和": [4, 3, 2, 5],
                     "员工": ["张三", "王五", "赵六", "钱七"],
                     "值": [1, 1, 1, 1],
                     "分组": ["A8", "VN", "A8", "B7"]
@@ -253,19 +215,15 @@ def get_excel_download_link(dataframes, filename="技能覆盖数据.xlsx"):
 # -------------------- 侧边栏：数据管理 --------------------
 st.sidebar.markdown("<div class='sidebar-title'>📤 数据管理</div>", unsafe_allow_html=True)
 
-# 显示当前数据状态
 st.sidebar.markdown(f"**📄 数据来源:** {st.session_state.file_name}")
 st.sidebar.markdown(f"**📊 时间点数量:** {len(st.session_state.sheets)}")
 
-# 刷新数据按钮
 if st.sidebar.button("🔄 刷新数据", use_container_width=True):
-    # 清除session state，重新加载数据
     for key in ['sheet_frames', 'sheets', 'file_name', 'data_loaded']:
         if key in st.session_state:
             del st.session_state[key]
     st.rerun()
 
-# 手动上传数据作为备用方案
 st.sidebar.markdown("---")
 st.sidebar.markdown("<div class='sidebar-title'>📁 备用数据源</div>", unsafe_allow_html=True)
 
@@ -277,7 +235,6 @@ uploaded_file = st.sidebar.file_uploader(
 
 if uploaded_file is not None:
     try:
-        # 根据文件类型选择引擎
         if uploaded_file.name.endswith('.xlsx'):
             engine = "openpyxl"
         elif uploaded_file.name.endswith('.xls'):
@@ -285,7 +242,6 @@ if uploaded_file is not None:
         else:
             st.sidebar.error("⚠️ 请上传Excel文件（.xlsx或.xls格式）")
         
-        # 读取文件
         xpd = pd.ExcelFile(uploaded_file, engine=engine)
         sheet_frames = {}
         
@@ -295,28 +251,17 @@ if uploaded_file is not None:
                 if df.empty:
                     continue
                     
-                # 检查必要列
                 required_cols = {"明细", "员工", "值"}
                 if not required_cols.issubset(set(df.columns)):
                     st.sidebar.warning(f"⚠️ 表 {sheet_name} 缺少必要列，已跳过。")
                     continue
 
-                # 处理数据
-                if "数量总和" not in df.columns:
-                    # 如果没有数量总和列，计算并添加
-                    sum_df = (
-                        df.groupby("明细", as_index=False)["值"].sum()
-                        .rename(columns={"值": "数量总和"})
-                    )
-                    df = df.merge(sum_df, on="明细", how="left")
-                
                 sheet_frames[sheet_name] = df
                 
             except Exception as e:
                 st.sidebar.error(f"⚠️ 读取 {sheet_name} 时出错: {e}")
         
         if sheet_frames:
-            # 保存到session state
             st.session_state.sheets = list(sheet_frames.keys())
             st.session_state.sheet_frames = sheet_frames
             st.session_state.file_name = f"上传文件_{uploaded_file.name}"
@@ -326,7 +271,6 @@ if uploaded_file is not None:
     except Exception as e:
         st.sidebar.error(f"⚠️ 读取文件失败：{e}")
 
-# 下载按钮
 if st.session_state.sheet_frames:
     st.sidebar.markdown("---")
     st.sidebar.markdown(get_excel_download_link(
@@ -334,7 +278,7 @@ if st.session_state.sheet_frames:
         f"技能覆盖数据_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
     ), unsafe_allow_html=True)
 
-# -------------------- 智能化新增月份/季度 --------------------
+# -------------------- 新增月份/季度 --------------------
 st.sidebar.markdown("---")
 st.sidebar.markdown("<div class='sidebar-title'>📅 新增数据时间点</div>", unsafe_allow_html=True)
 current_year = datetime.now().year
@@ -353,18 +297,15 @@ if st.sidebar.button("📝 创建新的时间点"):
         st.sidebar.error(f"⚠️ 时间点 {new_sheet_name} 已存在！")
     else:
         try:
-            # 获取上一个时间点的数据作为模板
             prev_sheets = sorted([s for s in st.session_state.sheets if "_" in s and s < new_sheet_name])
             if prev_sheets:
                 prev_name = prev_sheets[-1]
                 base_df = st.session_state.sheet_frames.get(prev_name, pd.DataFrame()).copy()
                 st.sidebar.info(f"📋 已从最近时间点 {prev_name} 自动继承数据")
             else:
-                # 创建空白模板
-                base_df = pd.DataFrame(columns=["明细", "数量总和", "员工", "值", "分组"])
+                base_df = pd.DataFrame(columns=["明细", "员工", "值", "分组"])
                 st.sidebar.info("📋 未找到上期数据，创建空白模板")
             
-            # 添加到session state
             st.session_state.sheet_frames[new_sheet_name] = base_df
             st.session_state.sheets.append(new_sheet_name)
             st.session_state.sheets.sort()
@@ -375,7 +316,7 @@ if st.sidebar.button("📝 创建新的时间点"):
         except Exception as e:
             st.sidebar.error(f"❌ 创建失败：{e}")
 
-# -------------------- 删除工作表功能 --------------------
+# -------------------- 删除工作表 --------------------
 st.sidebar.markdown("---")
 st.sidebar.markdown("<div class='sidebar-title'>🗑️ 删除时间点</div>", unsafe_allow_html=True)
 if st.session_state.sheets:
@@ -395,7 +336,6 @@ if st.session_state.sheets:
             col1, col2 = st.sidebar.columns(2)
             with col1:
                 if st.button("✅ 确认删除", key="confirm_delete"):
-                    # 从session state中删除
                     del st.session_state.sheet_frames[sheet_to_delete]
                     st.session_state.sheets.remove(sheet_to_delete)
                     st.session_state.delete_confirm = False
@@ -405,35 +345,7 @@ if st.session_state.sheets:
                 if st.button("❌ 取消", key="cancel_delete"):
                     st.session_state.delete_confirm = False
 
-# -------------------- 数据修复工具 --------------------
-st.sidebar.markdown("---")
-st.sidebar.markdown("<div class='sidebar-title'>🔧 数据修复工具</div>", unsafe_allow_html=True)
-
-if st.sidebar.button("🧮 一键更新所有数量总和"):
-    try:
-        def repair_quantity_sums(dataframes):
-            """修复所有数据框的数量总和列"""
-            repaired_frames = {}
-            for sheet_name, df in dataframes.items():
-                if "明细" in df.columns and "值" in df.columns:
-                    sum_df = (
-                        df.groupby("明细", as_index=False)["值"].sum()
-                        .rename(columns={"值": "数量总和"})
-                    )
-                    df = df.drop(columns=["数量总和"], errors="ignore")
-                    df = df.merge(sum_df, on="明细", how="left")
-                    repaired_frames[sheet_name] = df
-                else:
-                    repaired_frames[sheet_name] = df
-            return repaired_frames
-        
-        st.session_state.sheet_frames = repair_quantity_sums(st.session_state.sheet_frames)
-        st.sidebar.success("✅ 所有工作表的数量总和已重新计算并更新！")
-        st.rerun()
-    except Exception as e:
-        st.sidebar.error(f"❌ 更新失败：{e}")
-
-# -------------------- 时间点选择优化 --------------------
+# -------------------- 时间筛选 --------------------
 st.sidebar.markdown("---")
 st.sidebar.markdown("<div class='sidebar-title'>🔍 数据筛选</div>", unsafe_allow_html=True)
 years_available = sorted(list({s.split("_")[0] for s in st.session_state.sheets if "_" in s}))
@@ -475,7 +387,6 @@ view = st.sidebar.radio("切换视图", ["编辑数据", "大屏轮播", "单页
 
 # -------------------- 数据合并 --------------------
 def get_merged_df(keys: List[str], groups: List[str]) -> pd.DataFrame:
-    """合并选中的时间点数据"""
     dfs = []
     for k in keys:
         df0 = st.session_state.sheet_frames.get(k)
@@ -492,7 +403,7 @@ def get_merged_df(keys: List[str], groups: List[str]) -> pd.DataFrame:
 
 df = get_merged_df(time_choice, selected_groups)
 
-# -------------------- 图表函数（使用固定参数） --------------------
+# -------------------- 图表函数 --------------------
 def chart_total(df0):
     df0 = df0[df0["明细"] != "分数总和"]
     emp_stats = df0.groupby("员工")["值"].sum().sort_values(ascending=False).reset_index()
@@ -519,14 +430,11 @@ def chart_stack(df0):
     df0 = df0[df0["明细"] != "分数总和"]
     df_pivot = df0.pivot_table(index="明细", columns="员工", values="值", aggfunc="sum", fill_value=0)
     
-    # 限制显示的数据量
     if len(df_pivot) > 50:
         df_pivot = df_pivot.head(50)
-        st.info(f"⚠️ 任务数量较多，已限制显示前50个任务（总计 {len(df0['明细'].unique())} 个任务）")
+        st.info(f"⚠️ 任务数量较多，已限制显示前50个任务")
     
     fig = go.Figure()
-    
-    # 使用更现代的颜色
     colors = ['#3498db', '#2ecc71', '#e74c3c', '#f39c12', '#9b59b6', '#1abc9c', '#34495e']
     
     for idx, emp in enumerate(df_pivot.columns):
@@ -554,14 +462,13 @@ def chart_heat(df0):
     tasks = df0["明细"].unique().tolist()
     emps = df0["员工"].unique().tolist()
     
-    # 限制显示的数据量
     if len(tasks) > 30:
         tasks = tasks[:30]
-        st.info(f"⚠️ 任务数量较多，已限制显示前30个任务（总计 {len(df0['明细'].unique())} 个任务）")
+        st.info(f"⚠️ 任务数量较多，已限制显示前30个任务")
     
     if len(emps) > 20:
         emps = emps[:20]
-        st.info(f"⚠️ 员工数量较多，已限制显示前20名员工（总计 {len(df0['员工'].unique())} 名员工）")
+        st.info(f"⚠️ 员工数量较多，已限制显示前20名员工")
     
     data = []
     for i, t in enumerate(tasks):
@@ -600,7 +507,7 @@ def chart_heat(df0):
         }]
     }
 
-# -------------------- 优化后的指标卡片显示函数 --------------------
+# -------------------- 指标卡片 --------------------
 def show_cards(df0):
     df0 = df0[df0["明细"] != "分数总和"]
     if df0.empty:
@@ -611,14 +518,10 @@ def show_cards(df0):
     ps = df0.groupby("员工")["值"].sum()
     top_person = ps.idxmax() if not ps.empty else ""
     avg_score = round(ps.mean(), 1) if not ps.empty else 0
-    
-    # 计算总完成值
     total_value = int(df0["值"].sum()) if not df0.empty else 0
 
-    # 使用5个指标卡片
     c1, c2, c3, c4, c5 = st.columns(5)
     
-    # 任务数卡片
     c1.markdown(f"""
         <div class='metric-card'>
             <div class='metric-value'>{total_tasks}</div>
@@ -626,7 +529,6 @@ def show_cards(df0):
         </div>
     """, unsafe_allow_html=True)
     
-    # 参与人数卡片
     c2.markdown(f"""
         <div class='metric-card'>
             <div class='metric-value'>{total_people}</div>
@@ -634,7 +536,6 @@ def show_cards(df0):
         </div>
     """, unsafe_allow_html=True)
     
-    # 总完成值卡片
     c3.markdown(f"""
         <div class='metric-card'>
             <div class='metric-value'>{total_value}</div>
@@ -642,7 +543,6 @@ def show_cards(df0):
         </div>
     """, unsafe_allow_html=True)
     
-    # 覆盖率最高人员卡片
     c4.markdown(f"""
         <div class='metric-card'>
             <div class='metric-value'>{top_person[:8]}{'...' if len(top_person) > 8 else ''}</div>
@@ -650,7 +550,6 @@ def show_cards(df0):
         </div>
     """, unsafe_allow_html=True)
     
-    # 平均完成值卡片
     c5.markdown(f"""
         <div class='metric-card'>
             <div class='metric-value'>{avg_score}</div>
@@ -660,7 +559,6 @@ def show_cards(df0):
     
     st.markdown("<hr/>", unsafe_allow_html=True)
 
-# -------------------- 定义鲜艳的颜色列表 --------------------
 BRIGHT_COLORS = [
     "#3498db", "#2ecc71", "#e74c3c", "#f39c12", "#9b59b6",
     "#1abc9c", "#d35400", "#34495e", "#16a085", "#8e44ad"
@@ -676,16 +574,11 @@ if view == "编辑数据":
         st.warning("⚠️ 编辑数据时仅支持选择单个时间点，请重新选择！")
     else:
         show_cards(df)
-        
-        # 创建卡片容器
-        st.markdown("<div class='chart-container'>", unsafe_allow_html=True)
         st.info("📝 你可以直接编辑下面的表格，修改完成后点击【保存】按钮。")
         
         sheet_name = time_choice[0]
         try:
-            # 获取原始数据
             original_df = st.session_state.sheet_frames[sheet_name].copy()
-            
             display_df = df.copy()
             edited_df = st.data_editor(display_df, num_rows="dynamic", use_container_width=True)
 
@@ -700,18 +593,8 @@ if view == "编辑数据":
                         else:
                             final_df = edited_df.copy()
 
-                        # 修复数量总和
-                        if "明细" in final_df.columns and "值" in final_df.columns:
-                            sum_df = (
-                                final_df.groupby("明细", as_index=False)["值"].sum()
-                                .rename(columns={"值": "数量总和"})
-                            )
-                            final_df = final_df.drop(columns=["数量总和"], errors="ignore")
-                            final_df = final_df.merge(sum_df, on="明细", how="left")
-
-                        # 更新session state
                         st.session_state.sheet_frames[sheet_name] = final_df
-                        st.success(f"✅ 修改已保存到 {sheet_name}，仅更新选中分组数据")
+                        st.success(f"✅ 修改已保存到 {sheet_name}")
                         st.rerun()
                         
                     except Exception as e:
@@ -721,20 +604,14 @@ if view == "编辑数据":
                     st.rerun()
         except Exception as e:
             st.error(f"⚠️ 加载编辑数据失败：{e}")
-        st.markdown("</div>", unsafe_allow_html=True)
 
 elif view == "大屏轮播":
     if not time_choice:
-        st.warning("⚠️ 请在左侧选择时间点（月或季）后查看大屏轮播")
+        st.warning("⚠️ 请在左侧选择时间点后查看大屏轮播")
     else:
         st_autorefresh(interval=10000, key="aut")
         show_cards(df)
-        
-        # 创建卡片容器
-        st.markdown("<div class='chart-container'>", unsafe_allow_html=True)
-        secs = [("完成排名", chart_total(df)),
-                ("任务对比", chart_stack(df)),
-                ("热力图", chart_heat(df))]
+        secs = [("完成排名", chart_total(df)), ("任务对比", chart_stack(df)), ("热力图", chart_heat(df))]
         t, op = secs[int(time.time() / 10) % len(secs)]
         st.subheader(f"📈 {t}")
         if isinstance(op, go.Figure):
@@ -743,16 +620,12 @@ elif view == "大屏轮播":
             st.markdown('<div class="heatmap-container">', unsafe_allow_html=True)
             st_echarts(op, height="600px", theme="light")
             st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
 
 elif view == "单页模式":
     if not time_choice:
-        st.warning("⚠️ 请在左侧选择时间点（月或季）后查看单页模式")
+        st.warning("⚠️ 请在左侧选择时间点后查看单页模式")
     else:
         show_cards(df)
-        
-        # 创建卡片容器
-        st.markdown("<div class='chart-container'>", unsafe_allow_html=True)
         choice = st.sidebar.selectbox("单页查看", sections_names, index=0)
         mapping = {
             "人员完成任务数量排名": chart_total(df),
@@ -760,7 +633,6 @@ elif view == "单页模式":
             "任务-人员热力图": chart_heat(df)
         }
         chart_func = mapping.get(choice, chart_total(df))
-        
         st.subheader(f"📊 {choice}")
         if isinstance(chart_func, go.Figure):
             st.plotly_chart(chart_func, use_container_width=True)
@@ -768,20 +640,14 @@ elif view == "单页模式":
             st.markdown('<div class="heatmap-container">', unsafe_allow_html=True)
             st_echarts(chart_func, height="600px", theme="light")
             st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
 
 elif view == "显示所有视图":
     if not time_choice:
-        st.warning("⚠️ 请在左侧选择时间点（月或季）后查看所有视图")
+        st.warning("⚠️ 请在左侧选择时间点后查看所有视图")
     else:
         show_cards(df)
-        charts = [("完成排名", chart_total(df)),
-                  ("任务对比（堆叠柱状图）", chart_stack(df)),
-                  ("热图", chart_heat(df))]
-        
+        charts = [("完成排名", chart_total(df)), ("任务对比", chart_stack(df)), ("热力图", chart_heat(df))]
         for label, f in charts:
-            # 每个图表一个卡片容器
-            st.markdown("<div class='chart-container'>", unsafe_allow_html=True)
             st.subheader(f"📊 {label}")
             if isinstance(f, go.Figure):
                 st.plotly_chart(f, use_container_width=True)
@@ -789,29 +655,23 @@ elif view == "显示所有视图":
                 st.markdown('<div class="heatmap-container">', unsafe_allow_html=True)
                 st_echarts(f, height="600px", theme="light")
                 st.markdown('</div>', unsafe_allow_html=True)
-            st.markdown("</div>", unsafe_allow_html=True)
 
 elif view == "能力分析":
     if not time_choice:
-        st.warning("⚠️ 请在左侧选择时间点（月或季）后查看能力分析")
+        st.warning("⚠️ 请在左侧选择时间点后查看能力分析")
     else:
         show_cards(df)
-        
-        st.markdown("<div class='chart-container'>", unsafe_allow_html=True)
         st.subheader("📈 能力分析")
         employees = df["员工"].unique().tolist()
         selected_emps = st.sidebar.multiselect("选择员工（图1显示）", employees, default=employees[:min(5, len(employees))])
         tasks = df["明细"].unique().tolist()
         
-        # 限制显示的任务数量
         if len(tasks) > 20:
             tasks = tasks[:20]
-            st.info(f"⚠️ 任务数量较多，已限制显示前20个任务（总计 {len(df['明细'].unique())} 个任务）")
+            st.info(f"⚠️ 任务数量较多，已限制显示前20个任务")
 
         fig1, fig2, fig3 = go.Figure(), go.Figure(), go.Figure()
-        sheet_color_map = {}
-        for idx, sheet in enumerate(time_choice):
-            sheet_color_map[sheet] = BRIGHT_COLORS[idx % len(BRIGHT_COLORS)]
+        sheet_color_map = {sheet: BRIGHT_COLORS[idx % len(BRIGHT_COLORS)] for idx, sheet in enumerate(time_choice)}
 
         emp_color_idx = 0
         for sheet in time_choice:
@@ -823,73 +683,33 @@ elif view == "能力分析":
                 for emp in selected_emps:
                     if emp in df_pivot.columns:
                         fig1.add_trace(go.Scatter(
-                            x=tasks,
-                            y=df_pivot[emp].reindex(tasks, fill_value=0),
-                            mode="lines+markers",
-                            name=f"{sheet}-{emp}",
+                            x=tasks, y=df_pivot[emp].reindex(tasks, fill_value=0),
+                            mode="lines+markers", name=f"{sheet}-{emp}",
                             line=dict(color=BRIGHT_COLORS[emp_color_idx % len(BRIGHT_COLORS)], width=2.5),
                             marker=dict(size=7)
                         ))
                         emp_color_idx += 1
 
                 fig2.add_trace(go.Scatter(
-                    x=tasks,
-                    y=df_pivot.sum(axis=1).reindex(tasks, fill_value=0),
-                    mode="lines+markers",
-                    name=sheet,
+                    x=tasks, y=df_pivot.sum(axis=1).reindex(tasks, fill_value=0),
+                    mode="lines+markers", name=sheet,
                     line=dict(color=sheet_color_map[sheet], width=2.5),
                     marker=dict(size=7)
                 ))
 
                 fig3.add_trace(go.Bar(
-                    x=df_pivot.columns,
-                    y=df_pivot.sum(axis=0),
-                    name=sheet,
-                    marker=dict(color=sheet_color_map[sheet]),
-                    width=0.25,
+                    x=df_pivot.columns, y=df_pivot.sum(axis=0),
+                    name=sheet, marker=dict(color=sheet_color_map[sheet]), width=0.25
                 ))
 
-        fig1.update_layout(
-            title="员工任务完成情况",
-            template="plotly_white",
-            font=dict(size=12),
-            legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5),
-            height=600,
-            plot_bgcolor='white',
-            paper_bgcolor='white'
-        )
-
-        fig2.update_layout(
-            title="任务整体完成度趋势",
-            template="plotly_white",
-            font=dict(size=12),
-            legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5),
-            height=600,
-            plot_bgcolor='white',
-            paper_bgcolor='white'
-        )
-
-        fig3.update_layout(
-            title="员工整体完成度对比",
-            template="plotly_white",
-            font=dict(size=12),
-            barmode="group",
-            bargap=0.25,
-            bargroupgap=0.005,
-            legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5),
-            height=600,
-            xaxis=dict(
-                tickangle=45,
-                tickfont=dict(size=10)
-            ),
-            yaxis=dict(
-                tickfont=dict(size=10)
-            ),
-            plot_bgcolor='white',
-            paper_bgcolor='white'
-        )
+        for fig in [fig1, fig2, fig3]:
+            fig.update_layout(
+                template="plotly_white", font=dict(size=12), height=600,
+                legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5),
+                plot_bgcolor='white', paper_bgcolor='white'
+            )
+        fig3.update_layout(barmode="group", bargap=0.25, bargroupgap=0.005)
 
         st.plotly_chart(fig1, use_container_width=True)
         st.plotly_chart(fig2, use_container_width=True)
         st.plotly_chart(fig3, use_container_width=True)
-        st.markdown("</div>", unsafe_allow_html=True)
