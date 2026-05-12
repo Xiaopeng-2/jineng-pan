@@ -430,9 +430,9 @@ def chart_stack(df0):
     df0 = df0[df0["明细"] != "分数总和"]
     df_pivot = df0.pivot_table(index="明细", columns="员工", values="值", aggfunc="sum", fill_value=0)
     
-    if len(df_pivot) > 50:
-        df_pivot = df_pivot.head(50)
-        st.info(f"⚠️ 任务数量较多，已限制显示前50个任务")
+   # if len(df_pivot) > 50:
+   #     df_pivot = df_pivot.head(50)
+   #     st.info(f"⚠️ 任务数量较多，已限制显示前50个任务")
     
     fig = go.Figure()
     colors = ['#3498db', '#2ecc71', '#e74c3c', '#f39c12', '#9b59b6', '#1abc9c', '#34495e']
@@ -462,13 +462,13 @@ def chart_heat(df0):
     tasks = df0["明细"].unique().tolist()
     emps = df0["员工"].unique().tolist()
     
-    if len(tasks) > 30:
-        tasks = tasks[:30]
-        st.info(f"⚠️ 任务数量较多，已限制显示前30个任务")
+   # if len(tasks) > 30:
+   #     tasks = tasks[:30]
+   #     st.info(f"⚠️ 任务数量较多，已限制显示前30个任务")
     
-    if len(emps) > 20:
-        emps = emps[:20]
-        st.info(f"⚠️ 员工数量较多，已限制显示前20名员工")
+   # if len(emps) > 20:
+   #     emps = emps[:20]
+   #     st.info(f"⚠️ 员工数量较多，已限制显示前20名员工")
     
     data = []
     for i, t in enumerate(tasks):
@@ -666,9 +666,9 @@ elif view == "能力分析":
         selected_emps = st.sidebar.multiselect("选择员工（图1显示）", employees, default=employees[:min(5, len(employees))])
         tasks = df["明细"].unique().tolist()
         
-        if len(tasks) > 20:
-            tasks = tasks[:20]
-            st.info(f"⚠️ 任务数量较多，已限制显示前20个任务")
+        #if len(tasks) > 20:
+        #   tasks = tasks[:20]
+        #    st.info(f"⚠️ 任务数量较多，已限制显示前20个任务")
 
         fig1, fig2, fig3 = go.Figure(), go.Figure(), go.Figure()
         sheet_color_map = {sheet: BRIGHT_COLORS[idx % len(BRIGHT_COLORS)] for idx, sheet in enumerate(time_choice)}
